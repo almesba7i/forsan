@@ -102,7 +102,7 @@
         // الإعدادات المخصصة للتطبيق الخارجي (مطلوبة للتشغيل على GitHub Pages)
         // يجب استبدال هذه القيم بقيم مشروع Firebase الخاص بك
         // ***************************************************************
-        const CUSTOM_FIREBASE_CONFIG = {
+   /*     const CUSTOM_FIREBASE_CONFIG = {
             apiKey: "YOUR_API_KEY", // <--- استبدل هنا
             authDomain: "YOUR_AUTH_DOMAIN", // <--- استبدل هنا
             projectId: "YOUR_PROJECT_ID", // <--- استبدل هنا
@@ -110,12 +110,25 @@
             messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
             appId: "YOUR_APP_ID" // <--- استبدل هنا
         };
+*/
+        
+const firebaseConfig = {
+  apiKey: "AIzaSyBOUB-QQRUrHee7LacPXMg7i5lyBDcRzIU",
+  authDomain: "alforsan-146da.firebaseapp.com",
+  projectId: "alforsan-146da",
+  storageBucket: "alforsan-146da.firebasestorage.app",
+  messagingSenderId: "749946066473",
+  appId: "1:749946066473:web:93aafa707410ecfd56ae38",
+  measurementId: "G-N3PE4EHEY5"
+};
+
+        
         
         // تحديد إعدادات Firebase للاستخدام (تلقائيًا في Canvas، يدويًا في الخارج)
         let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : CUSTOM_FIREBASE_CONFIG;
         
         // التحقق مما إذا كانت الإعدادات الافتراضية لا تزال موجودة
-        if (firebaseConfig.projectId === "YOUR_PROJECT_ID") {
+        if (firebaseConfig.projectId === "alforsan-146da") {
             document.getElementById('firebase-setup-warning').classList.remove('hidden');
             firebaseConfig = null; // تعطيل التهيئة إذا لم يتم التحديث يدوياً
         }
