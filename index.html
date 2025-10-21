@@ -26,6 +26,13 @@
             <p id="user-id-display" class="text-xs break-all text-blue-900 mt-1 font-mono"></p>
         </div>
 
+        <!-- **ملاحظة: هذا القسم يظهر فقط عند عدم توفر إعدادات Firebase التلقائية** -->
+        <div id="firebase-setup-warning" class="hidden mb-6 p-4 bg-red-100 text-red-800 rounded-lg border border-red-300">
+            <h3 class="font-bold">تنبيه: إعدادات Firebase مفقودة!</h3>
+            <p class="text-sm">للتشغيل على GitHub أو أي خادم خارجي، يجب إدخال إعدادات مشروع Firebase الخاصة بك يدوياً في الكود. ارجع إلى قسم `// الإعدادات المخصصة للتطبيق الخارجي` في ملف JavaScript.</p>
+        </div>
+
+
         <!-- نموذج إدخال البيانات -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- عمود الإدخال -->
@@ -89,8 +96,30 @@
         
         // المتغيرات العامة المقدمة من بيئة العمل (مطلوبة للعمل مع Firestore)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // ***************************************************************
+        // الإعدادات المخصصة للتطبيق الخارجي (مطلوبة للتشغيل على GitHub Pages)
+        // يجب استبدال هذه القيم بقيم مشروع Firebase الخاص بك
+        // ***************************************************************
+        const CUSTOM_FIREBASE_CONFIG = {
+            apiKey: "YOUR_API_KEY", // <--- استبدل هنا
+            authDomain: "YOUR_AUTH_DOMAIN", // <--- استبدل هنا
+            projectId: "YOUR_PROJECT_ID", // <--- استبدل هنا
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID" // <--- استبدل هنا
+        };
+        
+        // تحديد إعدادات Firebase للاستخدام (تلقائيًا في Canvas، يدويًا في الخارج)
+        let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : CUSTOM_FIREBASE_CONFIG;
+        
+        // التحقق مما إذا كانت الإعدادات الافتراضية لا تزال موجودة
+        if (firebaseConfig.projectId === "YOUR_PROJECT_ID") {
+            document.getElementById('firebase-setup-warning').classList.remove('hidden');
+            firebaseConfig = null; // تعطيل التهيئة إذا لم يتم التحديث يدوياً
+        }
+
 
         let app, db, auth;
         let userId = null;
@@ -102,14 +131,16 @@
         const dataListDiv = document.getElementById('dataList');
         const statusMessage = document.getElementById('statusMessage');
         const userIdDisplay = document.getElementById('user-id-display');
+        
 
         /**
          * تهيئة Firebase والمصادقة
          */
         async function initializeFirebase() {
             if (!firebaseConfig) {
-                showStatus('خطأ: لم يتم توفير إعدادات Firebase.', 'error');
-                console.error('Firebase config is missing.');
+                // عرض رسالة الخطأ هذه إذا كانت الإعدادات المخصصة لا تزال افتراضية
+                showStatus('خطأ: لم يتم توفير إعدادات Firebase. يرجى مراجعة التعليمات.', 'error');
+                console.error('Firebase config is missing or invalid.');
                 return;
             }
 
@@ -136,13 +167,14 @@
                         // بعد تعيين userId، نبدأ بتحميل البيانات
                         fetchDataInRealTime(); 
                     } else {
-                        // في حالة عدم وجود مستخدم، يمكن استخدام مُعرف عشوائي، لكننا نعتمد على signInAnonymously
+                        // في حالة عدم وجود مستخدم، يتم الاعتماد على signInAnonymously
                         console.log("No user is signed in.");
                         userId = null; 
                     }
                 });
 
             } catch (error) {
+                // عرض خطأ تهيئة Firebase
                 showStatus(`خطأ في تهيئة Firebase: ${error.message}`, 'error');
                 console.error("Firebase initialization error:", error);
             }
@@ -182,6 +214,7 @@
             e.preventDefault();
 
             if (!db || !userId) {
+                // تظهر هذه الرسالة إذا لم يتم إدخال إعدادات Firebase بشكل صحيح
                 showStatus('خطأ: قاعدة البيانات غير جاهزة أو المستخدم غير مُسجل الدخول.', 'error');
                 return;
             }
