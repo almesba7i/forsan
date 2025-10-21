@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدخال بيانات المستخدم</title>
+    <!-- تحميل Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- تعيين الخط الافتراضي واستخدام الاتجاه من اليمين لليسار -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f7f9fb;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-10 border border-gray-100">
+
+        <h1 class="text-3xl font-bold mb-6 text-gray-800 border-b pb-4 text-center">نظام إدخال البيانات الشخصية</h1>
+        
+        <!-- عرض مُعرف المستخدم (UserId) - ضروري للتطبيقات متعددة المستخدمين -->
+        <div class="mb-6 text-center bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <p class="text-sm font-semibold text-blue-700">مُعرف المستخدم الحالي (UserID):</p>
+            <p id="user-id-display" class="text-xs break-all text-blue-900 mt-1 font-mono"></p>
+        </div>
+
+        <!-- نموذج إدخال البيانات -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- عمود الإدخال -->
+            <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">إدخال البيانات الجديدة</h2>
+                <form id="data-form" class="space-y-4">
+                    
+                    <div>
+                        <label for="userName" class="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
+                        <input type="text" id="userName" required
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="أدخل اسمك الكامل">
+                    </div>
+
+                    <div>
+                        <label for="userAge" class="block text-sm font-medium text-gray-700 mb-1">العمر</label>
+                        <input type="number" id="userAge" required min="1"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="أدخل عمرك بالأرقام">
+                    </div>
+
+                    <div>
+                        <label for="userPhone" class="block text-sm font-medium text-gray-700 mb-1">رقم الجوال</label>
+                        <input type="tel" id="userPhone" required
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                               placeholder="أدخل رقم جوالك (مثال: 05xxxxxxx)">
+                    </div>
+
+                    <button type="submit" id="submitBtn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-[1.01] shadow-lg shadow-blue-500/50 flex items-center justify-center">
+                        <svg id="loader" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span id="buttonText">إدخال البيانات</span>
+                    </button>
+                    
+                    <!-- رسالة الحالة (بديل لـ alert) -->
+                    <div id="statusMessage" class="mt-4 p-3 rounded-lg text-center font-medium hidden" role="alert"></div>
+
+                </form>
+            </div>
+
+            <!-- عمود عرض البيانات -->
+            <div class="bg-white p-6 rounded-lg border border-gray-200 shadow">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">البيانات المُدخلة (سجل الوقت الفعلي)</h2>
+                <div id="dataList" class="space-y-4">
+                    <p id="loadingData" class="text-center text-gray-500">جاري تحميل البيانات...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تضمين مكتبات Firebase الأساسية -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, setLogLevel, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === 1. الإعدادات الأولية ===
+        
+        // المتغيرات العامة المقدمة من بيئة العمل (مطلوبة للعمل مع Firestore)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+        let userId = null;
+
+        const form = document.getElementById('data-form');
+        const submitBtn = document.getElementById('submitBtn');
+        const buttonText = document.getElementById('buttonText');
+        const loader = document.getElementById('loader');
+        const dataListDiv = document.getElementById('dataList');
+        const statusMessage = document.getElementById('statusMessage');
+        const userIdDisplay = document.getElementById('user-id-display');
+
+        /**
+         * تهيئة Firebase والمصادقة
+         */
+        async function initializeFirebase() {
+            if (!firebaseConfig) {
+                showStatus('خطأ: لم يتم توفير إعدادات Firebase.', 'error');
+                console.error('Firebase config is missing.');
+                return;
+            }
+
+            try {
+                // تفعيل وضع التصحيح للاطلاع على سجلات Firebase
+                setLogLevel('Debug');
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // المصادقة باستخدام الرمز المخصص (إذا كان متاحًا) أو تسجيل الدخول كمجهول
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                // الاستماع لتغييرات حالة المصادقة وتعيين مُعرف المستخدم
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        // بعد تعيين userId، نبدأ بتحميل البيانات
+                        fetchDataInRealTime(); 
+                    } else {
+                        // في حالة عدم وجود مستخدم، يمكن استخدام مُعرف عشوائي، لكننا نعتمد على signInAnonymously
+                        console.log("No user is signed in.");
+                        userId = null; 
+                    }
+                });
+
+            } catch (error) {
+                showStatus(`خطأ في تهيئة Firebase: ${error.message}`, 'error');
+                console.error("Firebase initialization error:", error);
+            }
+        }
+
+        /**
+         * عرض رسائل الحالة للمستخدم (بديل لـ alert)
+         * @param {string} message - الرسالة المراد عرضها.
+         * @param {string} type - نوع الرسالة ('success' أو 'error').
+         */
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden');
+            
+            // إزالة فئات الألوان السابقة
+            statusMessage.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+
+            if (type === 'success') {
+                statusMessage.classList.add('bg-green-100', 'text-green-800');
+            } else if (type === 'error') {
+                statusMessage.classList.add('bg-red-100', 'text-red-800');
+            }
+
+            // إخفاء الرسالة بعد 5 ثوانٍ
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // === 2. وظيفة حفظ البيانات ===
+        
+        /**
+         * معالجة إرسال النموذج وحفظ البيانات في Firestore
+         * @param {Event} e - حدث الإرسال
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!db || !userId) {
+                showStatus('خطأ: قاعدة البيانات غير جاهزة أو المستخدم غير مُسجل الدخول.', 'error');
+                return;
+            }
+
+            // تفعيل حالة التحميل
+            submitBtn.disabled = true;
+            buttonText.textContent = 'جاري الإدخال...';
+            loader.classList.remove('hidden');
+
+            const userName = document.getElementById('userName').value.trim();
+            const userAge = parseInt(document.getElementById('userAge').value);
+            const userPhone = document.getElementById('userPhone').value.trim();
+            
+            // مسار المجموعة: /artifacts/{appId}/users/{userId}/user_data (بيانات خاصة)
+            const collectionPath = `/artifacts/${appId}/users/${userId}/user_data`;
+
+            try {
+                // إضافة مستند جديد إلى المجموعة
+                await addDoc(collection(db, collectionPath), {
+                    name: userName,
+                    age: userAge,
+                    phone: userPhone,
+                    createdAt: serverTimestamp(), // تسجيل وقت الإضافة
+                });
+
+                showStatus('تم إدخال البيانات بنجاح!', 'success');
+                // مسح النموذج بعد الإدخال الناجح
+                form.reset();
+
+            } catch (error) {
+                showStatus(`خطأ أثناء حفظ البيانات: ${error.message}`, 'error');
+                console.error("Error adding document: ", error);
+            } finally {
+                // إيقاف حالة التحميل
+                submitBtn.disabled = false;
+                buttonText.textContent = 'إدخال البيانات';
+                loader.classList.add('hidden');
+            }
+        });
+
+        // === 3. وظيفة جلب وعرض البيانات في الوقت الفعلي ===
+
+        /**
+         * جلب وعرض البيانات من Firestore في الوقت الفعلي باستخدام onSnapshot
+         */
+        function fetchDataInRealTime() {
+            if (!db || !userId) {
+                // لن يتم تشغيل onSnapshot إلا بعد تعيين userId
+                return;
+            }
+            
+            // مسار المجموعة
+            const collectionPath = `/artifacts/${appId}/users/${userId}/user_data`;
+            const dataQuery = query(collection(db, collectionPath));
+
+            // إعداد onSnapshot للاستماع للتغييرات في الوقت الفعلي
+            onSnapshot(dataQuery, (snapshot) => {
+                const userData = [];
+                snapshot.forEach((doc) => {
+                    // تحويل البيانات إلى كائن وإضافة مُعرف المستند
+                    userData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // تحديث واجهة المستخدم
+                renderDataList(userData);
+            }, (error) => {
+                // معالجة الأخطاء عند الاستماع للتغييرات
+                console.error("Error listening to data: ", error);
+                showStatus('خطأ في جلب البيانات من قاعدة البيانات.', 'error');
+            });
+        }
+
+        /**
+         * بناء قائمة HTML لعرض البيانات
+         * @param {Array<Object>} data - مصفوفة البيانات المراد عرضها.
+         */
+        function renderDataList(data) {
+            dataListDiv.innerHTML = ''; // مسح القائمة الحالية
+            
+            // تم إزالة السطر الذي يسبب الخطأ (document.getElementById('loadingData').classList.add('hidden');).
+            // السبب: السطر السابق (dataListDiv.innerHTML = '';) يمسح جميع عناصر القائمة، 
+            // بما في ذلك عنصر "loadingData"، مما يجعل استدعاء getElementById بعده يعيد قيمة null.
+
+            if (data.length === 0) {
+                dataListDiv.innerHTML = '<p class="text-center text-gray-500 p-4 bg-yellow-50 rounded-lg">لم يتم إدخال أية بيانات بعد.</p>';
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const timestamp = item.createdAt ? new Date(item.createdAt.toDate()).toLocaleString('ar-EG') : 'غير متوفر';
+                
+                const card = document.createElement('div');
+                card.className = `p-4 border border-gray-300 rounded-lg shadow-sm bg-white hover:shadow-md transition duration-200`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2 border-b pb-2">
+                        <p class="text-lg font-bold text-blue-600">${item.name}</p>
+                        <span class="text-xs text-gray-500">${timestamp}</span>
+                    </div>
+                    <div class="space-y-1 text-gray-700">
+                        <p><span class="font-medium">العمر:</span> ${item.age}</p>
+                        <p><span class="font-medium">رقم الجوال:</span> ${item.phone}</p>
+                    </div>
+                `;
+                dataListDiv.appendChild(card);
+            });
+        }
+        
+        // بدء تهيئة التطبيق عند تحميل الصفحة
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
